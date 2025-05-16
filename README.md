@@ -1,6 +1,5 @@
 # semancomm-sbox
 
-![Semantic Communication](https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Semantic_Network_Example.png/640px-Semantic_Network_Example.png)
 
 Welcome to **semancomm-sbox**! 🚀
 
@@ -29,8 +28,6 @@ Semantic Communication goes beyond traditional bit-level communication by focusi
 Feel free to fork this repository and experiment! Open issues if you find any bugs or have interesting ideas to try out.
 
 ---
-
-![Communication Path](https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Communication_channel_model.svg/640px-Communication_channel_model.svg.png)
 
 **Let's redefine communication together.**
 
