@@ -10,16 +10,15 @@ This is my personal playground for experimenting with **Semantic Communications*
 ## 🌌 **What is Semantic Communication?**
 Semantic Communication goes beyond traditional bit-level communication by focusing on the meaning of the transmitted information. It aims to improve communication efficiency by understanding and transmitting only the relevant semantic information required for the intended task.
 
-## 📸 **Illustration of Semantic Communication Process**
+## 🔄 **Semantic Communication Process (Step-by-Step)**
+This step-by-step visualization illustrates the flow of information through the semantic communication pipeline:
 
-Below is an example of the semantic communication process visualized during training:
+![Semantic Communication Step-by-Step](images/semantic_step_by_step.png)
 
-![Semantic Communication Process](images/cifar10_intermediate_steps.png)
-
-- **Original Image**: The initial image fed into the semantic encoder.
-- **Encoded Representation**: The compressed semantic representation of the original image.
-- **Channel Output**: The representation after passing through the communication channel with noise.
-- **Reconstructed Image**: The final output after decoding, approximating the original image.
+- **Original Image**: The raw input from the CIFAR dataset.
+- **Encoder Output**: The compressed semantic representation after encoding.
+- **Channel Output**: The representation after passing through the noise channel.
+- **Decoder Output**: The final output after semantic decoding.
 
 This visualization showcases the transformation of information through the semantic encoder, noisy channel, and the decoder.
 
@@ -61,18 +60,6 @@ Below is the training and validation loss curve observed during model training:
 ![Training and Validation Loss](images/training_validation_loss.png)
 
 This plot represents the MSE loss over epochs for both the training set and validation set, showcasing the learning progression and convergence of the model.
-
----
-
-## 🔄 **Semantic Communication Process (Step-by-Step)**
-This step-by-step visualization illustrates the flow of information through the semantic communication pipeline:
-
-![Semantic Communication Step-by-Step](images/semantic_step_by_step.png)
-
-- **Original Image**: The raw input from the CIFAR dataset.
-- **Encoder Output**: The compressed semantic representation after encoding.
-- **Channel Output**: The representation after passing through the noise channel.
-- **Decoder Output**: The final output after semantic decoding.
 
 ---
 
