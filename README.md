@@ -26,7 +26,8 @@ This visualization showcases the transformation of information through the seman
 
 
 
-## 🔥 **Current Experiments**
+## 🔥 **Future Experiments**
+I will do these following points:
 - [ ] Semantic-aware text generation
 - [ ] Contextual information extraction
 - [ ] Knowledge-augmented communication models
