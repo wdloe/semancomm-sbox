@@ -158,3 +158,45 @@ os.makedirs("results", exist_ok=True)
 plt.savefig("results/cifar10_training_loss.png")
 print("Training Loss plot saved to results/cifar10_training_loss.png")
 plt.show()
+
+# Visualize the intermediate steps: Encoder, Channel, Decoder
+import matplotlib.pyplot as plt
+
+# Sample a batch for visualization
+for images, _ in train_loader:
+    x = images.view(-1, input_dim).to(device)
+    encoded = encoder(x)
+    transmitted = channel(encoded)
+    recovered = decoder(transmitted)
+    break
+
+# Move back to CPU for visualization
+x = x.cpu()
+encoded = encoded.cpu()
+transmitted = transmitted.cpu()
+recovered = recovered.cpu()
+
+# Visualization
+fig, axes = plt.subplots(1, 4, figsize=(20, 5))
+
+# Original Image
+axes[0].imshow(x[0].view(32, 32, 3).detach().numpy() * 0.5 + 0.5)
+axes[0].set_title("Original Image")
+
+# Encoded Representation (Flattened)
+axes[1].plot(encoded[0].detach().numpy())
+axes[1].set_title("Encoded Representation")
+
+# Transmitted (Channel Output)
+axes[2].plot(transmitted[0].detach().numpy())
+axes[2].set_title("Channel Output")
+
+# Reconstructed Image
+axes[3].imshow(recovered[0].view(32, 32, 3).detach().numpy() * 0.5 + 0.5)
+axes[3].set_title("Reconstructed Image")
+
+# Save the visualization
+os.makedirs("results", exist_ok=True)
+plt.savefig("results/cifar10_intermediate_steps.png")
+print("Intermediate visualization saved to results/cifar10_intermediate_steps.png")
+plt.show()
