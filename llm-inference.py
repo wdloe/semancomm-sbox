@@ -28,15 +28,15 @@ except HTTPError as e:
     exit(1)
 
 # Move model to GPU if available
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
+device = "cuda:2" if torch.cuda.is_available() else "cpu"
 model.to(device)
 
 # Example prompt
-prompt = "How does semantic communication improve satellite efficiency?"
+prompt = "Apakah kamu tahu tentang LLM? Berikan penjelasan singkat."
 inputs = tokenizer(prompt, return_tensors="pt").to(device)
 
 # Generate text
-output = model.generate(**inputs, max_length=100, temperature=0.7)
+output = model.generate(**inputs, max_length=500, temperature=0.7)
 response = tokenizer.decode(output[0], skip_special_tokens=True)
 
 # Display the result
