@@ -51,3 +51,39 @@ Feel free to fork this repository and experiment! Open issues if you find any bu
 ---
 
 _Just experimenting. Let's see where it goes._
+
+
+---
+
+## 📈 **Training and Validation Loss**
+Below is the training and validation loss curve observed during model training:
+
+![Training and Validation Loss](images/training_validation_loss.png)
+
+This plot represents the MSE loss over epochs for both the training set and validation set, showcasing the learning progression and convergence of the model.
+
+---
+
+## 🔄 **Semantic Communication Process (Step-by-Step)**
+This step-by-step visualization illustrates the flow of information through the semantic communication pipeline:
+
+![Semantic Communication Step-by-Step](images/semantic_step_by_step.png)
+
+- **Original Image**: The raw input from the CIFAR dataset.
+- **Encoder Output**: The compressed semantic representation after encoding.
+- **Channel Output**: The representation after passing through the noise channel.
+- **Decoder Output**: The final output after semantic decoding.
+
+---
+
+## ⚖️ **Comparison with Traditional Communication**
+This comparison highlights the difference in MSE and the number of bits transmitted:
+
+![Comparison with Traditional Communication](images/comparison_with_mse.png)
+
+- **Original Image**: The reference image.
+- **Semantic Recovered**: The image recovered through semantic communication.
+- **Traditional Recovered**: The image recovered through traditional communication.
+- The MSE and the number of bits transmitted are displayed in the titles for quantitative analysis.
+
+---
