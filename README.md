@@ -39,4 +39,4 @@ Feel free to fork this repository and experiment! Open issues if you find any bu
 
 _Just experimenting. Let's see where it goes._
 
-2025
+2025.
