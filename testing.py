@@ -7,6 +7,27 @@ import os
 from torch.nn.functional import mse_loss
 import argparse
 import numpy as np
+from torchvision.models import vgg16
+import torch.nn.functional as F
+
+
+# Move models to GPU (cuda:1)
+device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+
+
+# Load VGG16 for perceptual loss (feature-based loss)
+vgg = vgg16(pretrained=True).features[:8].to(device)
+vgg.eval()  # Set to evaluation mode
+
+# Define Perceptual Loss
+def perceptual_loss(output, target):
+    """
+    Compute perceptual loss based on VGG feature maps.
+    This loss focuses on semantic differences instead of pixel differences.
+    """
+    output_features = vgg(output)
+    target_features = vgg(target)
+    return F.mse_loss(output_features, target_features)
 
 # Argument parser for noise configuration and image index
 parser = argparse.ArgumentParser(description='Semantic Communication Testing')
@@ -55,34 +76,52 @@ class Channel(nn.Module):
         return x + noise
 
 
-class SemanticDecoder(nn.Module):
-    def __init__(self, encoded_dim, output_channels=3):
-        super(SemanticDecoder, self).__init__()
-        
-        self.fc = nn.Sequential(
-            nn.Linear(encoded_dim, 4608),   # 512 * 3 * 3 = 4608
-            nn.ReLU()
+class DiffusionUNet(nn.Module):
+    def __init__(self, cond_dim, channels=3):
+        super().__init__()
+        self.cond_proj = nn.Linear(cond_dim, 256)
+        self.net = nn.Sequential(
+            nn.Conv2d(channels + 1 + 256, 64, 3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(64, 128, 3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(128, 64, 3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(64, channels, 3, padding=1)
         )
 
-        # Decoder with skip connections
-        self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(512, 256, 4, stride=2, padding=1),  # -> 6x6
-            nn.ReLU(),
-            nn.ConvTranspose2d(256, 128, 4, stride=2, padding=1),  # -> 12x12
-            nn.ReLU(),
-            nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1),   # -> 24x24
-            nn.ReLU(),
-            nn.ConvTranspose2d(64, 32, 4, stride=2, padding=1),    # -> 48x48
-            nn.ReLU(),
-            nn.ConvTranspose2d(32, output_channels, 4, stride=2, padding=1),  # -> 96x96
-            nn.Tanh()
+    def forward(self, x, t, cond):
+        b, c, h, w = x.shape
+        t_embed = t[:, None, None, None].float() / 1000
+        t_embed = t_embed.expand(-1, 1, h, w)
+        cond_embed = self.cond_proj(cond).unsqueeze(-1).unsqueeze(-1).expand(-1, 256, h, w)
+        x_cat = torch.cat([x, t_embed, cond_embed], dim=1)
+        return self.net(x_cat)
+
+
+# Discriminator for Adversarial Loss
+class Discriminator(nn.Module):
+    def __init__(self):
+        super(Discriminator, self).__init__()
+        self.model = nn.Sequential(
+            nn.Conv2d(3, 64, 4, stride=2, padding=1),
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(64, 128, 4, stride=2, padding=1),
+            nn.BatchNorm2d(128),
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(128, 256, 4, stride=2, padding=1),
+            nn.BatchNorm2d(256),
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(256, 1, 4, stride=2, padding=1),
+            nn.Sigmoid()
         )
 
     def forward(self, x):
-        x = self.fc(x)
-        x = x.view(x.size(0), 512, 3, 3)
-        x = self.decoder(x)
-        return x
+        """
+        Forward pass for the discriminator.
+        Determines if the input is real or generated.
+        """
+        return self.model(x).view(-1)
 
 
 # Initialize models and load checkpoints
@@ -91,14 +130,26 @@ encoded_dim = 2048
 
 encoder = SemanticEncoder(encoded_dim)
 channel = Channel(noise_std=args.noise_std)
-decoder = SemanticDecoder(encoded_dim, output_channels=3)
+decoder = DiffusionUNet(encoded_dim).to(device)
 
 encoder = encoder.to(device)
 channel = channel.to(device)
-decoder = decoder.to(device)
 
 encoder.load_state_dict(torch.load("checkpoints/best_encoder.pth"))
-decoder.load_state_dict(torch.load("checkpoints/best_decoder.pth"))
+decoder.load_state_dict(torch.load("checkpoints/best_diffusion_decoder.pth"))
+
+discriminator = Discriminator().to(device)
+learning_rate = 1e-4
+disc_optimizer = torch.optim.AdamW(discriminator.parameters(), lr=learning_rate, weight_decay=1e-5)
+
+# Diffusion schedule definitions (match training)
+def linear_beta_schedule(timesteps):
+    return torch.linspace(1e-4, 0.02, timesteps)
+
+timesteps = 1000
+betas = linear_beta_schedule(timesteps).to(device)
+alphas = 1. - betas
+alpha_hat = torch.cumprod(alphas, dim=0)
 
 # Traditional Communication Simulation
 def traditional_communication(x):
@@ -120,10 +171,47 @@ for idx, (images, _) in enumerate(val_loader):
     # Semantic Communication
     encoded = encoder(x)
     transmitted = channel(encoded)
-    recovered = decoder(transmitted)
+    # Diffusion inference: start from noise and iteratively denoise
+    x_gen = torch.randn_like(x)
+    for i in reversed(range(1000)):
+        t = torch.full((x.size(0),), i, device=device, dtype=torch.long)
+        alpha_t = alpha_hat[t].view(-1, 1, 1, 1)
+        beta_t = betas[t].view(-1, 1, 1, 1)
+        pred_noise = decoder(x_gen, t, transmitted)
 
-    mse_semantic = mse_loss(recovered, x).item()
+        # DDPM update step
+        x_gen = (1 / torch.sqrt(alphas[t]).view(-1, 1, 1, 1)) * (
+            x_gen - beta_t / torch.sqrt(1 - alpha_hat[t]).view(-1, 1, 1, 1) * pred_noise
+        )
+        if i > 0:
+            noise = torch.randn_like(x_gen)
+            x_gen += torch.sqrt(beta_t) * noise
+
+    recovered = x_gen
+
+    # Apply Perceptual Loss instead of MSE
+    loss = perceptual_loss(recovered, x)
+
+    # Discriminator on real and generated images
+    disc_real = discriminator(x)
+    disc_fake = discriminator(recovered.detach())
+
+    # Train the Discriminator
+    real_labels = torch.ones_like(disc_real, device=device)
+    fake_labels = torch.zeros_like(disc_fake, device=device)
+
+    real_loss = F.binary_cross_entropy(disc_real, real_labels)
+    fake_loss = F.binary_cross_entropy(disc_fake, fake_labels)
+
+    # Total discriminator loss and backpropagation
+    disc_loss = (real_loss + fake_loss) / 2
+    disc_optimizer.zero_grad()
+    disc_loss.backward()
+    disc_optimizer.step()
+
     mse_traditional = mse_loss(traditional_communication(images).to(device), x).item()
+
+    print(f"Perceptual Loss: {loss.item()}, Discriminator Loss: {disc_loss.item()}")
 
     plt.figure(figsize=(20, 5))
 
@@ -168,7 +256,7 @@ for idx, (images, _) in enumerate(val_loader):
 
     # Decoder Output (Corrected Reshaping)
     plt.subplot(1, 4, 4)
-    plt.title(f"Decoder Output\nMSE: {mse_semantic:.4f}")
+    plt.title(f"Decoder Output\nPerceptual Loss: {loss.item():.4f}")
     recovered_image = recovered[0].permute(1, 2, 0).detach().cpu().numpy() * 0.5 + 0.5
     plt.imshow(recovered_image)
 
@@ -187,7 +275,7 @@ for idx, (images, _) in enumerate(val_loader):
 
     # Semantic Recovered
     plt.subplot(1, 3, 2)
-    plt.title(f"Semantic Recovered\nMSE: {mse_semantic:.4f} | Bits: {encoded.numel() * 32}")
+    plt.title(f"Semantic Recovered\nPerceptual Loss: {loss.item():.4f} | Bits: {encoded.numel() * 32}")
     plt.imshow(recovered_image)
 
     # Traditional Recovered
@@ -200,3 +288,5 @@ for idx, (images, _) in enumerate(val_loader):
     print("Comparison with MSE saved to results/comparison_with_mse.png")
     plt.show()
     break
+
+torch.save(discriminator.state_dict(), "checkpoints/best_discriminator.pth")
