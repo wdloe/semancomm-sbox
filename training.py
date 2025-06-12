@@ -347,3 +347,5 @@ plt.show()
 #
 # def perceptual_loss(output, target):
 #     return mse_loss(vgg(output), vgg(target))
+
+# test
