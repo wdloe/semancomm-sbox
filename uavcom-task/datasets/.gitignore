@@ -1,0 +1,17 @@
+
+# Datasets
+datasets/
+uav_dataset/
+AIDER/
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# Model outputs
+*.pth
+*.pt
+*.ckpt
+runs/
+checkpoints/
